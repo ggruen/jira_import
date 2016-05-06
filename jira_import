@@ -1,0 +1,186 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+jira_import - Import timesheet to JIRA
+
+=head1 SYNOPSIS
+
+    jira_import -f my_timesheet.tsv -e my_timesheet_errors.tsv \
+        -m MY_INSTANCE.atlassian.net
+
+    # Create timesheet file
+    printf "2\t1.25\tABC-1234\tDO-123-MP\tDid some work.\tJoe Producer" > \
+        ~/timesheet.tsv
+    jira_import -f ~/timesheet.tsv -m MY_INSTANCE.atlassian.net
+
+    # Store your username and password for convenience
+    # Note: to get your JIRA username, log into JIRA in a browser, click
+    # your profile picture, and select Profile.  Your username is on the
+    # left side. The API username is *not* the same username you use to
+    # log into the web site.
+    echo "MY_INSTANCE.atlassian.net login USERNAME password PASSWORD" > \
+        ~/.netrc ; chmod 600 ~/.netrc
+
+
+Really, you'll copy from Excel, Google Sheets, etc, paste into a file,
+then jira_import -f filename -m MY_INSTANCE.assign.atlassian.net
+
+=head1 DESCRIPTION
+
+jira_import reads a tab-delimited file containing timesheet entries and submits
+"worklog" entries using the JIRA API for each row that contains a
+JIRA issue code.
+
+If an error is encountered while writing a line (e.g. a task isn't found),
+the line will be written to error_file.  This file can then be re-run
+through jira_import later to import the missing entries.
+
+=head1 OPTIONS
+
+=over
+
+=item -f <filename>, --file=<filename>
+
+The input file from which to read entries.  Must be in the following format
+(but not all fields are required):
+
+  Day  Hours  JIRA Code  Task  Note  Producer
+
+Day, Task, and Producer are *ignored* by jira_import.  They exist to be
+compatible with another system.  You can ignore them, or you can submit
+a pull request with a version that allows you to not provide these
+fields. :)
+
+=item -m <machine_name>, --machine=<machine_name>, --instance=<machine_name>
+
+The domain name of the JIRA instance you're connecting to.  This is used both
+to look up your username and password in .netrc and to connect to the
+JIRA instance.  jira_import will connect to https://machine_name/.
+
+Example:
+
+    jira_import -f ~/timesheet.tsv -m myjira.atlassian.net
+
+    # In ~/.netrc
+    machine myjira.atlassian.net login myusername password mypassword
+
+=item -e <filename>, --error_file=<filename>
+
+If specified, for any lines in the input file that an exception is thrown while
+processing, the line will be written to filename.  Any error text from
+the exception will be sent to STDERR, so you should see it clearly.
+
+Note that this script will exit with a 0 exit code even if an exception
+was thrown while processing.  The error file is your only indication that
+an entry failed, and you can (and should) attempt to re-run jira_import
+on the error file after fixing any errors.
+
+If not specified, the error file will be the input filename with "_failed"
+appended.  This can produce odd filenames, e.g. "my_timesheet.txt_failed".
+Specify an error file explicitly to avoid that.
+
+=back
+
+=cut
+
+use strict;
+use 5.006;
+use Try::Tiny;
+
+use Getopt::Long;
+use Pod::Usage;
+use JIRA::REST;
+
+my $USAGE_ARGS = {-verbose => 0, -exitval => 1};
+
+my ( $import_file, $error_file, $machine_name );
+GetOptions( 'file|f:s' => \$import_file,
+        'error_file|e:s' => \$error_file,
+        'machine|m|instance:s' => \$machine_name
+    ) or pod2usage($USAGE_ARGS);
+
+die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
+
+$error_file = "${import_file}_failed" unless $error_file;
+
+######################################################################
+# Main Program
+
+open FILE, "<", $import_file
+    or die "Couldn't open $import_file for reading";
+
+open ERROR_FILE, ">", $error_file
+    or die "Couldn't open $error_file for writing";
+
+# Remove domain name in case people can't read directions.
+$machine_name =~ s/http(s)?:\/\///;
+$machine_name =~ s/\/$//;
+
+my $jira_instance = "https://$machine_name/";
+
+# Username and password will be read from .netrc.
+# TODO: add optional username and password arguments to this script and
+# pass them to JIRA::REST here.
+# my $jira = JIRA::REST->new($jira_instance, $username, $password);
+my $jira = JIRA::REST->new($jira_instance);
+
+my $row = 0;
+foreach my $line (<FILE>) {
+    $row++;
+    try {
+        # Don't change the original in case we need to write it out.
+        my $mutated_line = $line;
+        chomp $mutated_line;
+        # Skip blank lines
+        next unless $mutated_line;
+
+        # We have a very strict format
+	    my ( $day, $hours, $jira_code, $billing_code, $note, $producer )
+	        = split("\t", $mutated_line);
+
+        # Clean up the code, mostly to remove whitespace, but also to make it
+        # URL-safe.
+        $jira_code =~ s/^A-Za-z0-9\-//g;
+
+        die "No JIRA code in row $row." unless $jira_code;
+
+        #  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
+        # https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addWorklog
+        $jira->POST("/issue/$jira_code/worklog", undef, {
+            comment => "$note",
+            timeSpent => "${hours}h"
+        });
+
+	} catch {
+	    warn "Caught error in row $row: $_";
+
+	    # Write out what we read in - this will have a newline at the end
+	    # so we don't add one.
+	    print ERROR_FILE "$line";
+	};
+
+}
+
+
+######################################################################
+# Subroutines
+
+=head1 KNOWN ISSUES
+
+Should probably have -u and -p options to specify username and password.
+
+JIRA::REST requires Test::Kwalitee to install, and it shouldn't
+(https://rt.cpan.org/Public/Bug/Display.html?id=114200)
+
+=head1 SEE ALSO
+
+JIRA::REST, which is the module that handles the bulk of the work.
+
+=head1 AUTHOR
+
+Grant Grueninger
+
+=cut
+
+1;
