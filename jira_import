@@ -133,11 +133,16 @@ foreach my $line (<FILE>) {
         my $mutated_line = $line;
         chomp $mutated_line;
         # Skip blank lines
-        next unless $mutated_line;
+        # "return" returns from the "try" block
+        return unless $mutated_line;
 
         # We have a very strict format
 	    my ( $day, $hours, $jira_code, $billing_code, $note, $producer )
 	        = split("\t", $mutated_line);
+
+        # Skip header row
+        # "return" returns from the try block (i.e. it's "next").
+        return if $day eq 'Day';
 
         # Clean up the code, mostly to remove whitespace, but also to make it
         # URL-safe.
