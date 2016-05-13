@@ -148,7 +148,8 @@ foreach my $line (<FILE>) {
         # URL-safe.
         $jira_code =~ s/^A-Za-z0-9\-//g;
 
-        die "No JIRA code in row $row." unless $jira_code;
+        # It's ok for the row not to have a code - means it's not for us.
+        return unless $jira_code;
 
         #  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
         # https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addWorklog
