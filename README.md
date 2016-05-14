@@ -4,7 +4,7 @@
 
     git clone https://github.com/ggruen/jira_import.git
     cpan install JIRA::REST
-    
+
     echo "machine MY_INSTANCE.atlassian.net login USERNAME password PASSWORD" >> \
         ~/.netrc ; chmod 600 ~/.netrc
 
@@ -25,7 +25,7 @@ Optionally, you can copy `jira_import` into ~/bin or wherever you like.
 1. Create a tab-delimited file with your timesheet in it with the following
    headers:
 
-    Day  Hours  JIRA Code  Task  Note  Producer
+        Day  Hours  JIRA Code  Task  Note  Producer
 
 2. Log your time in the tab-delimited file (hint: log it in Excel, then copy/
    paste into a file - the paste will be tab-delimited)
