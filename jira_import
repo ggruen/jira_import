@@ -138,7 +138,7 @@ foreach my $line (<FILE>) {
 
         # We have a very strict format
 	    my ( $day, $hours, $jira_code, $billing_code, $note, $producer )
-	        = split("\t", $mutated_line);
+	        = split(/\s*?\t\s*?/, $mutated_line);
 
         # Skip header row
         # "return" returns from the try block (i.e. it's "next").
