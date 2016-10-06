@@ -1,5 +1,11 @@
 # jira_import
 
+## Overview
+
+jira_import is a perl script that, using the JIRA::REST CPAN module,
+reads rows from a tab-delimited file and makes entries into your worklog
+in JIRA.
+
 ## Installation
 
     git clone https://github.com/ggruen/jira_import.git
