@@ -24,7 +24,7 @@ jira_import - Import timesheet to JIRA
 
 
 Really, you'll copy from Excel, Google Sheets, etc, paste into a file,
-then jira_import -f filename -m MY_INSTANCE.assign.atlassian.net
+then jira_import -f filename -m MY_INSTANCE.atlassian.net
 
 =head1 DESCRIPTION
 
@@ -47,10 +47,15 @@ The input file from which to read entries.  Must be in the following format
 
   Day  Hours  JIRA Code  Task  Note  Producer
 
-Day, Task, and Producer are *ignored* by jira_import.  They exist to be
+Task and Producer are *ignored* by jira_import.  They exist to be
 compatible with another system.  You can ignore them, or you can submit
 a pull request with a version that allows you to not provide these
 fields. :)
+
+Day is optional and defaults to today if not provided.  If it is provided,
+it must be an integer between 1 and 7, inclusive, where 1 is Sunday, 2 is
+Monday, ... and 7 is Saturday.  This odd numbering is for compatibility
+with the aforementioned "other system".
 
 =item -m <machine_name>, --machine=<machine_name>, --instance=<machine_name>
 
@@ -91,6 +96,7 @@ use Try::Tiny;
 use Getopt::Long;
 use Pod::Usage;
 use JIRA::REST;
+use DateTime;
 
 my $USAGE_ARGS = {-verbose => 0, -exitval => 1};
 
@@ -103,6 +109,11 @@ GetOptions( 'file|f:s' => \$import_file,
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
 
 $error_file = "${import_file}_failed" unless $error_file;
+
+# Used by convert_day_to_date for date calculations.  Calculated here
+# so we only do it once.
+my $NOW = DateTime->now(time_zone => 'UTC');
+my $LAST_SATURDAY = $NOW->clone->subtract( days => $NOW->local_day_of_week );
 
 ######################################################################
 # Main Program
@@ -146,17 +157,20 @@ foreach my $line (<FILE>) {
 
         # Clean up the code, mostly to remove whitespace, but also to make it
         # URL-safe.
-        $jira_code =~ s/^A-Za-z0-9\-//g;
+        $jira_code =~ s/^A-Za-z0-9\-//g if $jira_code;
 
         # It's ok for the row not to have a code - means it's not for us.
         return unless $jira_code;
 
-        #  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
+        #  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent}, \"started\": ${start_string} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
         # https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addWorklog
-        $jira->POST("/issue/$jira_code/worklog", undef, {
+        my $args = {
             comment => "$note",
-            timeSpent => "${hours}h"
-        });
+            timeSpent => "${hours}h",
+            started => convert_day_to_date($day)
+        };
+
+        $jira->POST("/issue/$jira_code/worklog", undef, $args);
 
 	} catch {
 	    warn "Caught error in row $row: $_";
@@ -171,6 +185,32 @@ foreach my $line (<FILE>) {
 
 ######################################################################
 # Subroutines
+
+# convert_day_to_date($day_int)
+#
+# Given an integer from 1-7 inclusive that represents a day of the week,
+# where Sunday is 1, Monday is 2, etc, return the date formatted in the
+# format that JIRA wants for the "started" (and possibly other) field(s).
+#
+# If $day is not a true value (e.g. 0, undefined), today's date is returned.
+#
+sub convert_day_to_date {
+    my ( $day ) = @_;
+
+    # Find the end of the previous week, so we can assign the correct date
+    # based on the day-of-week input if Day is provided in the input file.
+    # We store these in global variables at the top of the script so we're not
+    # recalculating them every time this subroutine is called.
+    my $start_date;
+    if ( $day ) {
+        $start_date = $LAST_SATURDAY->clone->add( days => $day );
+    } else {
+        $start_date = $NOW;
+    }
+    my $start_string = $start_date->strftime('%FT%T.%3N%z');
+
+    return $start_string;
+}
 
 =head1 KNOWN ISSUES
 
