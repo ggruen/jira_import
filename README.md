@@ -23,9 +23,6 @@ is *not* the same username you use to log into the web site.
 
 Optionally, you can copy `jira_import` into ~/bin or wherever you like.
 
-5/6/16: You may need to force the install of JIRA::REST (cpan -f install JIRA::REST), see
-        https://rt.cpan.org/Public/Bug/Display.html?id=114200
-
 ## Running
 
 1. Create a tab-delimited file with your timesheet in it with the following
