@@ -10,9 +10,9 @@ jira_import - Import timesheet to JIRA
         -m MY_INSTANCE.atlassian.net
 
     # Create timesheet file
-    printf "2\t1.25\tABC-1234\tDO-123-MP\tDid some work.\tJoe Producer" > \
-        ~/timesheet.tsv
-    jira_import -f ~/timesheet.tsv -m MY_INSTANCE.atlassian.net
+    perl -e 'print "2\t1.25\tABC-1234\tDO-123-MP\tDid some work.\tJoe Producer\n"' > \
+        /tmp/timesheet.tsv
+    jira_import -f /tmp/timesheet.tsv -m MY_INSTANCE.atlassian.net
 
     # Store your username and password for convenience
     # Note: to get your JIRA username, log into JIRA in a browser, click
@@ -215,9 +215,6 @@ sub convert_day_to_date {
 =head1 KNOWN ISSUES
 
 Should probably have -u and -p options to specify username and password.
-
-JIRA::REST requires Test::Kwalitee to install, and it shouldn't
-(https://rt.cpan.org/Public/Bug/Display.html?id=114200)
 
 =head1 SEE ALSO
 
