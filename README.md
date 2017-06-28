@@ -46,7 +46,12 @@ You can copy `jira_import` into `~/bin` or wherever you like.
 
 The repo includes an `install` script that will do a `git pull` and copy
 `jira_import` to `~/bin`.  You can run that via a crontab if you want to keep
-the script updated automatically.  If you'd like an option to install
+the script updated automatically.
+
+    # Check for jira_import updates Sunday at midnight
+    0 0 * * 0 /path_to_jira_import_repo/install
+
+If you'd like an option to install
 somewhere like /usr/local/bin, submit an issue or a pull request and I'll add
 it.  Or, just write a crontab entry like:
 
