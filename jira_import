@@ -7,7 +7,7 @@ jira_import - Import timesheet to JIRA
 =head1 SYNOPSIS
 
     jira_import -f my_timesheet.tsv -e my_timesheet_errors.tsv \
-        -m MY_INSTANCE.atlassian.net
+        -m MY_INSTANCE.atlassian.net [-u username -p password]
 
     # Create timesheet file
     perl -e 'print "2\t1.25\tABC-1234\tDO-123-MP\tDid some work.\tJoe Producer\n"' > \
@@ -85,6 +85,32 @@ If not specified, the error file will be the input filename with "_failed"
 appended.  This can produce odd filenames, e.g. "my_timesheet.txt_failed".
 Specify an error file explicitly to avoid that.
 
+=item -u <username>, --username=<username>
+
+The username that shows up in your user profile in JIRA.  This is *not*
+the username with which you log in via the web interface.
+
+This is here for testing and completeness.  You should use C<~/.netrc> instead,
+if for no other reason than because you'll need to include your password
+on the command line if you use C<-u>.
+
+If you use this option, you must pass your password with the C<-p/--password>
+option.  If you don't include a password, your username will be ignored and
+C<jira_import> will fall back to using C<~/.netrc>.
+
+=item -p <password>, --password=<password>
+
+The password you use to log into JIRA.  This is the same password with which
+you log into the web interface.
+
+This is here for testing and completeness.  You should use C<~/.netrc> instead,
+because by using this option your password will appear on the command line,
+in your shell's history, and probably other places (e.g. terminal window
+scrollback, key logging software, etc).
+
+If you don't specify both a username and a password, C<jira_import> will
+ignore both options and use C<~/.netrc>.
+
 =back
 
 =cut
@@ -100,10 +126,12 @@ use DateTime;
 
 my $USAGE_ARGS = {-verbose => 0, -exitval => 1};
 
-my ( $import_file, $error_file, $machine_name );
-GetOptions( 'file|f:s' => \$import_file,
+my ( $import_file, $error_file, $machine_name, $username, $password );
+GetOptions( 'file|f=s' => \$import_file,
         'error_file|e:s' => \$error_file,
-        'machine|m|instance:s' => \$machine_name
+        'machine|m|instance=s' => \$machine_name,
+        'username|u:s' => \$username,
+        'password|p:s' => \$password
     ) or pod2usage($USAGE_ARGS);
 
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
@@ -130,11 +158,14 @@ $machine_name =~ s/\/$//;
 
 my $jira_instance = "https://$machine_name/";
 
-# Username and password will be read from .netrc.
-# TODO: add optional username and password arguments to this script and
-# pass them to JIRA::REST here.
-# my $jira = JIRA::REST->new($jira_instance, $username, $password);
-my $jira = JIRA::REST->new($jira_instance);
+# Get a JIRA::REST object (logged-in or able to log in)
+my $jira;
+if ( $username && $password ) {
+    $jira = JIRA::REST->new($jira_instance, $username, $password);
+} else {
+    # Username and password will be read from ~/.netrc.
+    $jira = JIRA::REST->new($jira_instance);
+}
 
 my $row = 0;
 foreach my $line (<FILE>) {
@@ -211,10 +242,6 @@ sub convert_day_to_date {
 
     return $start_string;
 }
-
-=head1 KNOWN ISSUES
-
-Should probably have -u and -p options to specify username and password.
 
 =head1 SEE ALSO
 
