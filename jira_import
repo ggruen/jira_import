@@ -140,7 +140,7 @@ $error_file = "${import_file}_failed" unless $error_file;
 
 # Used by convert_day_to_date for date calculations.  Calculated here
 # so we only do it once.
-my $NOW = DateTime->now(time_zone => 'UTC');
+my $NOW = DateTime->now(time_zone => 'local');
 my $LAST_SATURDAY = $NOW->clone->subtract( days => $NOW->local_day_of_week );
 
 ######################################################################
