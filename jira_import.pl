@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 
 =head1 NAME
 
@@ -21,7 +21,6 @@ jira_import - Import timesheet to JIRA
     # log into the web site.
     echo "MY_INSTANCE.atlassian.net login USERNAME password PASSWORD" > \
         ~/.netrc ; chmod 600 ~/.netrc
-
 
 Really, you'll copy from Excel, Google Sheets, etc, paste into a file,
 then jira_import -f filename -m MY_INSTANCE.atlassian.net
@@ -124,15 +123,16 @@ use Pod::Usage;
 use JIRA::REST;
 use DateTime;
 
-my $USAGE_ARGS = {-verbose => 0, -exitval => 1};
+my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 
 my ( $import_file, $error_file, $machine_name, $username, $password );
-GetOptions( 'file|f=s' => \$import_file,
-        'error_file|e:s' => \$error_file,
-        'machine|m|instance=s' => \$machine_name,
-        'username|u:s' => \$username,
-        'password|p:s' => \$password
-    ) or pod2usage($USAGE_ARGS);
+GetOptions(
+    'file|f=s'             => \$import_file,
+    'error_file|e:s'       => \$error_file,
+    'machine|m|instance=s' => \$machine_name,
+    'username|u:s'         => \$username,
+    'password|p:s'         => \$password
+) or pod2usage($USAGE_ARGS);
 
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
 
@@ -140,17 +140,22 @@ $error_file = "${import_file}_failed" unless $error_file;
 
 # Used by convert_day_to_date for date calculations.  Calculated here
 # so we only do it once.
-my $NOW = DateTime->now(time_zone => 'local');
-my $LAST_SATURDAY = $NOW->clone->subtract( days => $NOW->local_day_of_week );
+# Set "today" to noon local time. This is the safest start time, as JIRA will
+# adjust to UTC based on the user's time zone (note the assumption that this
+# script is running on a server in the user's local time zone as defined in
+# JIRA) and feed the server time to any plugins, e.g. Tempo.
+my $TODAY = DateTime->today( time_zone => 'local' )->add( hours => 12 );
+my $LAST_SATURDAY =
+  $TODAY->clone->subtract( days => $TODAY->local_day_of_week );
 
 ######################################################################
 # Main Program
 
 open FILE, "<", $import_file
-    or die "Couldn't open $import_file for reading";
+  or die "Couldn't open $import_file for reading";
 
 open ERROR_FILE, ">", $error_file
-    or die "Couldn't open $error_file for writing";
+  or die "Couldn't open $error_file for writing";
 
 # Remove domain name in case people can't read directions.
 $machine_name =~ s/http(s)?:\/\///;
@@ -161,8 +166,9 @@ my $jira_instance = "https://$machine_name/";
 # Get a JIRA::REST object (logged-in or able to log in)
 my $jira;
 if ( $username && $password ) {
-    $jira = JIRA::REST->new($jira_instance, $username, $password);
-} else {
+    $jira = JIRA::REST->new( $jira_instance, $username, $password );
+}
+else {
     # Username and password will be read from ~/.netrc.
     $jira = JIRA::REST->new($jira_instance);
 }
@@ -174,13 +180,14 @@ foreach my $line (<FILE>) {
         # Don't change the original in case we need to write it out.
         my $mutated_line = $line;
         chomp $mutated_line;
+
         # Skip blank lines
         # "return" returns from the "try" block
         return unless $mutated_line;
 
         # We have a very strict format
-	    my ( $day, $hours, $jira_code, $billing_code, $note, $producer )
-	        = split(/\s*?\t\s*?/, $mutated_line);
+        my ( $day, $hours, $jira_code, $billing_code, $note, $producer ) =
+          split( /\s*?\t\s*?/, $mutated_line );
 
         # Skip header row
         # "return" returns from the try block (i.e. it's "next").
@@ -193,26 +200,26 @@ foreach my $line (<FILE>) {
         # It's ok for the row not to have a code - means it's not for us.
         return unless $jira_code;
 
-        #  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent}, \"started\": ${start_string} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
-        # https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addWorklog
+#  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent}, \"started\": ${start_string} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
+# https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addWorklog
         my $args = {
-            comment => "$note",
+            comment   => "$note",
             timeSpent => "${hours}h",
-            started => convert_day_to_date($day)
+            started   => convert_day_to_date($day)
         };
 
-        $jira->POST("/issue/$jira_code/worklog", undef, $args);
+        $jira->POST( "/issue/$jira_code/worklog", undef, $args );
 
-	} catch {
-	    warn "Caught error in row $row: $_";
+    }
+    catch {
+        warn "Caught error in row $row: $_";
 
-	    # Write out what we read in - this will have a newline at the end
-	    # so we don't add one.
-	    print ERROR_FILE "$line";
-	};
+        # Write out what we read in - this will have a newline at the end
+        # so we don't add one.
+        print ERROR_FILE "$line";
+    };
 
 }
-
 
 ######################################################################
 # Subroutines
@@ -226,17 +233,18 @@ foreach my $line (<FILE>) {
 # If $day is not a true value (e.g. 0, undefined), today's date is returned.
 #
 sub convert_day_to_date {
-    my ( $day ) = @_;
+    my ($day) = @_;
 
     # Find the end of the previous week, so we can assign the correct date
     # based on the day-of-week input if Day is provided in the input file.
     # We store these in global variables at the top of the script so we're not
     # recalculating them every time this subroutine is called.
     my $start_date;
-    if ( $day ) {
+    if ($day) {
         $start_date = $LAST_SATURDAY->clone->add( days => $day );
-    } else {
-        $start_date = $NOW;
+    }
+    else {
+        $start_date = $TODAY;
     }
     my $start_string = $start_date->strftime('%FT%T.%3N%z');
 
