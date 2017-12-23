@@ -4,6 +4,12 @@
 # - Upload jira_import
 #
 all: jira_import
+
+jira_import:
 	fatpack pack jira_import.pl > jira_import
 	chmod 755 jira_import
 	rm -rf fatlib fatpacker.trace
+
+install: jira_import
+	mkdir -p ~/bin
+	mv jira_import ~/bin
