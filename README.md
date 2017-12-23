@@ -14,23 +14,41 @@ in JIRA.
 
 ## Setup
 
+Set these variables in your shell:
 
-`jira_import` reads your JIRA username and password from `.netrc`. Set
-it up like so:
+    my_jira=MY_INSTANCE        # e.g. "mycompany.atlassian.net"
+    username=MY_JIRA_USERNAME  # Enter your profile *username* (see below)
+    password=MY_JIRA_PASSWORD  # Your JIRA password
 
-    echo "machine MY_INSTANCE.atlassian.net login USERNAME password PASSWORD" >> \
+Copy/paste this to set up your `.netrc` (you can also just edit the file):
+
+    # Store login info in .netrc (only do this once)
+    echo "machine $my_jira_ login $username password $password" >> \
         ~/.netrc ; chmod 600 ~/.netrc
 
-Replace `MY_INSTANCE.atlassian.net` with the domain of your JIRA
-instance (yes, it works with JIRA Server as well as JIRA Cloud, just use
-the JIRA instance's domain like you would put in your web browser).
-
-Replace `USERNAME` with your JIRA username.  To get your JIRA username, log into
+To get your JIRA username, log into
 JIRA in a browser, click your profile picture, and select Profile.  Your
 username is on the left side under your profile picture.  The API username
 is *not* the same username you use to log into the web site.
 
-Replace `PASSWORD` with the password you use to log into JIRA.
+### Optional - to do a test entry
+
+Set these variables in your shell.
+
+    hours=1                       # Hours to log
+    issue=ABC-1234                # JIRA issue in which to add a test worklog
+    description="Did some stuff"  # Description of work done
+
+Copy/paste to make a test timesheet and submit it.
+
+    # Make a 1-line timesheet
+    printf "\t$hours\t$issue\t\t$description\t\n" > \
+            /tmp/timesheet.tsv
+
+    # Enter the timesheet
+    jira_import -f /tmp/timesheet.tsv -m $my_jira
+
+Go look in JIRA!
 
 ## Running
 
@@ -44,6 +62,9 @@ Replace `PASSWORD` with the password you use to log into JIRA.
 
 3. `jira_import -f tab_delimited_filename -m MY_INSTANCE.atlassian.net`
    (where `MY_INSTANCE.atlassian.net` is the domain of your JIRA instance).
+
+You'll probably want to put that command in a cron job to run at the end
+of the day.
 
 ## More info
 
