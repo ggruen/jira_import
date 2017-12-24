@@ -8,8 +8,11 @@ in JIRA.
 
 ## Installation/Upgrade
 
+Download from the [download page](https://github.com/ggruen/jira_import/releases/latest).
+
+    cd /where/you/downloaded
     mkdir -p ~/bin
-    curl https://github.com/ggruen/jira_import/releases/latest -o ~/bin/jira_import
+    mv ~/Downloads/jira_import.dms ~/bin/jira_import
     chmod 755 ~/bin/jira_import
 
 ## Setup
