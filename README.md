@@ -99,7 +99,7 @@ Make a new release copy of the script
 
 Install your release copy
 
-    mv jira_import ~/bin/jira_import
+    make install
 
 Or, since you have `JIRA::REST` installed, you can install just the script:
 
