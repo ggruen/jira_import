@@ -95,9 +95,13 @@ Make changes
 
 Make a new release copy of the script
 
-    make
+    make  # Creates fatpacked "jira_import" script
 
-Install your release copy
+Install your release copy in `~/bin/jira_import`
+
+    cp jira_import ~/bin/jira_import
+
+or
 
     make install
 
