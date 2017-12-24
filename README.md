@@ -86,7 +86,7 @@ To set up for development:
     cpanm App:FatPacker
 
 If you don't have `cpanm` you can
-[install it]((https://github.com/miyagawa/cpanminus)) or use `cpan install`
+[install it](https://github.com/miyagawa/cpanminus) or use `cpan install`
 instead. (To install cpanm on Mac you can `brew cpanm`).
 
 Make changes
