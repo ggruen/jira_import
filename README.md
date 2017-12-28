@@ -1,79 +1,57 @@
 # jira_import
 
-## Overview
-
 `jira_import` is a Perl script that, using the JIRA::REST CPAN module,
 reads rows from a tab-delimited file and makes entries into your worklog
 in JIRA.
 
-## Installation/Upgrade
+# Install/Upgrade
 
-Download from the [download page](https://github.com/ggruen/jira_import/releases/latest).
+Download from the [download
+page](https://github.com/ggruen/jira_import/releases/latest).
 
     cd /where/you/downloaded
     mkdir -p ~/bin
     mv ~/Downloads/jira_import.dms ~/bin/jira_import
     chmod 755 ~/bin/jira_import
 
-## Setup
+# Set up .netrc
 
-Set these variables in your shell:
+Add a line like this to `~/.netrc`, replacing words in all caps with
+appropriate values:
 
-    my_jira=MY_INSTANCE        # e.g. "mycompany.atlassian.net"
-    username=MY_JIRA_USERNAME  # Enter your profile *username* (see below)
-    password=MY_JIRA_PASSWORD  # Your JIRA password
+    machine JIRA_INSTANCE login USERNAME password PASSWORD
 
-Copy/paste this to set up your `.netrc` (you can also just edit the file):
+Example:
 
-    # Store login info in .netrc (only do this once)
-    echo "machine $my_jira_ login $username password $password" >> \
-        ~/.netrc ; chmod 600 ~/.netrc
+    machine something.atlassian.net login joe password mypass
 
 To get your JIRA username, log into
 JIRA in a browser, click your profile picture, and select Profile.  Your
 username is on the left side under your profile picture.  The API username
 is *not* the same username you use to log into the web site.
 
-### Optional - to do a test entry
+# Run
 
-Set these variables in your shell.
+Make a *tab-delimited* file like this, saved as "timesheet.txt":
 
-    hours=1                       # Hours to log
-    issue=ABC-1234                # JIRA issue in which to add a test worklog
-    description="Did some stuff"  # Description of work done
+    Day   Hours   JIRA Code   Task   Note            Producer
+    1     1.5     ABC-123            Broke stuff.
+    1     2       ABC-234            Fixed stuff.
 
-Copy/paste to make a test timesheet and submit it.
+Import the timesheet (replace JIRA_INSTANCE with your jira domain)
 
-    # Make a 1-line timesheet
-    printf "\t$hours\t$issue\t\t$description\t\n" > \
-            /tmp/timesheet.tsv
-
-    # Enter the timesheet
-    jira_import -f /tmp/timesheet.tsv -m $my_jira
+    jira_import -f timesheet.txt -m JIRA_INSTANCE
 
 Go look in JIRA!
-
-## Running
-
-1. Create a tab-delimited file with your timesheet in it with the following
-   headers:
-
-        Day  Hours  JIRA Code  Task  Note  Producer
-
-2. Log your time in the tab-delimited file (hint: log it in Excel, then copy/
-   paste into a file - the paste will be tab-delimited)
-
-3. `jira_import -f tab_delimited_filename -m MY_INSTANCE.atlassian.net`
-   (where `MY_INSTANCE.atlassian.net` is the domain of your JIRA instance).
 
 You'll probably want to put that command in a cron job to run at the end
 of the day.
 
-## More info
+# More info
 
     perldoc jira_import
 
-## Development
+# Development
 
 `jira_import` relies on `JIRA::REST`, which is packed into a single script
 using [fatpack](http://search.cpan.org/~mstrout/App-FatPacker/).
@@ -97,6 +75,7 @@ Make a new release copy of the script
 
     make  # Creates fatpacked "jira_import" script
 
+## Installing the release copy
 Install your release copy in `~/bin/jira_import`
 
     cp jira_import ~/bin/jira_import
@@ -105,6 +84,22 @@ or
 
     make install
 
-Or, since you have `JIRA::REST` installed, you can install just the script:
+## Installing a light copy
 
-    mv jira_import.pl ~/bin/jira_import && chmod 755 ~/bin/jira_import
+Since you have `JIRA::REST` installed, you can install just the script:
+
+    cp jira_import.pl ~/bin/jira_import && chmod 755 ~/bin/jira_import
+
+or
+
+    install
+
+# Release
+
+- `make`
+- Go to `https://github.com/ggruen/jira_import/releases`
+- Click "Draft a new release"
+- Fill in the blanks and upload the `jira_import` that `make` made
+- Set the tag in the github interface (it'll be pulled down - won't go the
+  other way)
+- `make clean`
