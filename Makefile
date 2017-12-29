@@ -13,3 +13,6 @@ jira_import:
 install: jira_import
 	mkdir -p ~/bin
 	mv jira_import ~/bin
+
+clean:
+	rm -rf fatlib fatpacker.trace jira_import
