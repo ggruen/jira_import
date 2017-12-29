@@ -122,19 +122,24 @@ use Getopt::Long;
 use Pod::Usage;
 use JIRA::REST;
 use DateTime;
+use Smart::Comments;
+use JSON;
 
 my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 
-my ( $import_file, $error_file, $machine_name, $username, $password );
+my ( $import_file, $error_file, $machine_name, $username, $password, $tempo );
 GetOptions(
     'file|f=s'             => \$import_file,
     'error_file|e:s'       => \$error_file,
     'machine|m|instance=s' => \$machine_name,
     'username|u:s'         => \$username,
-    'password|p:s'         => \$password
+    'password|p:s'         => \$password,
+    'tempo|t'              => \$tempo,
 ) or pod2usage($USAGE_ARGS);
 
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
+die "username required with --tempo to set its 'author' field, sorry."
+  if ( $tempo && !$username );
 
 $error_file = "${import_file}_failed" unless $error_file;
 
@@ -202,13 +207,48 @@ foreach my $line (<FILE>) {
 
 #  curl -H "Content-Type: application/json" -b "$_JIRA_COOKIE" -X POST -d "{ \"comment\": \"`_jira.quote ${comment}`\", \"timeSpentSeconds\": ${time_spent}, \"started\": ${start_string} }" ${_JIRA_API}/api/2/issue/${ticket}/worklog
 # https://docs.atlassian.com/jira/REST/latest/#api/2/issue-addWorklog
-        my $args = {
-            comment   => "$note",
-            timeSpent => "${hours}h",
-            started   => convert_day_to_date($day)
-        };
+        my $args;
+        my $url;
+        if ($tempo) {
+            $url = q{/rest/tempo-timesheets/3/worklogs/};
+            my $author = $username; # Because I hope to add || $jira->username.
+            my $seconds = $hours * 3600;
+            $args = {
+                comment          => $note,
+                timeSpentSeconds => $seconds,
+                billedSeconds    => $seconds,
+                dateStarted      => convert_day_to_date($day),
+                issue            => {
+                    key => $jira_code,
+                },
+                author          => {
+                    name => $author,
+                },
+                worklogAttributes => [
+                    {
+                        key   => "_nonbillable_",
+                        value => JSON::true,
+                    },
+                    {
+                        key   => "_BUDGETCode_",
+                        value => "$billing_code",
+                    },
+                ],
+            };
+        }
+        else {
+            $url  = "/issue/$jira_code/worklog";
+            $args = {
+                comment   => "$note",
+                timeSpent => "${hours}h",
+                started   => convert_day_to_date($day),
+            };
+        }
 
-        $jira->POST( "/issue/$jira_code/worklog", undef, $args );
+        my $json = encode_json( $args );
+        ### $args
+        ### $json
+        $jira->POST( $url, undef, $args );
 
     }
     catch {
