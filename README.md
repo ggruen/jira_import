@@ -58,14 +58,13 @@ using [fatpack](http://search.cpan.org/~mstrout/App-FatPacker/).
 
 To set up for development:
 
-
     git clone https://github.com/ggruen/jira_import.git
     cd jira_import
-    cpanm --installdeps .
+    cpanm --sudo --installdeps . # Drop --sudo if you install locally
 
 If you don't have `cpanm` you can
-[install it](https://github.com/miyagawa/cpanminus) or use `cpan install`
-instead. (To install cpanm on Mac you can `brew cpanm`).
+[install it](https://github.com/miyagawa/cpanminus#installation) or use
+`cpan install` instead and install the modules in "cpanfile" yourself.
 
 Make changes
 
