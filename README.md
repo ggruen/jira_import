@@ -60,8 +60,8 @@ To set up for development:
 
 
     git clone https://github.com/ggruen/jira_import.git
-    cpanm JIRA::REST
-    cpanm App:FatPacker
+    cd jira_import
+    cpanm --installdeps .
 
 If you don't have `cpanm` you can
 [install it](https://github.com/miyagawa/cpanminus) or use `cpan install`
@@ -86,7 +86,7 @@ or
 
 ## Installing a light copy
 
-Since you have `JIRA::REST` installed, you can install just the script:
+Since you have the dependencies installed, you can install just the script:
 
     cp jira_import.pl ~/bin/jira_import && chmod 755 ~/bin/jira_import
 

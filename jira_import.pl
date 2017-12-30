@@ -122,10 +122,23 @@ use Getopt::Long;
 use Pod::Usage;
 use JIRA::REST;
 use DateTime;
-use Smart::Comments;
+
+# Debugging aids
+#use Smart::Comments qw{### }; # Progress level
+use Smart::Comments qw{### ####}; # Debugging level - adds checks and requires
+#use Smart::Comments qw{### #### #####}; # Verbose debugging level
 use JSON;
 
+# Performance
+use Memoize;
+memoize('fetch_billing_code'); # Only fetch billing codes once per issue
+
 my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
+
+# --tempo is (currently) an undocumented option that is only useful for me and
+# a few people I work with. It logs time in Tempo and fills in a couple custom
+# fields, that, due to their tendancy to change, isn't worth making into a
+# full-fledged customizable option.
 
 my ( $import_file, $error_file, $machine_name, $username, $password, $tempo );
 GetOptions(
@@ -179,7 +192,7 @@ else {
 }
 
 my $row = 0;
-foreach my $line (<FILE>) {
+foreach my $line (<FILE>) {  ### Importing--->      done
     $row++;
     try {
         # Don't change the original in case we need to write it out.
@@ -210,31 +223,17 @@ foreach my $line (<FILE>) {
         my $args;
         my $url;
         if ($tempo) {
-            $url = q{/rest/tempo-timesheets/3/worklogs/};
-            my $author = $username; # Because I hope to add || $jira->username.
-            my $seconds = $hours * 3600;
-            $args = {
-                comment          => $note,
-                timeSpentSeconds => $seconds,
-                billedSeconds    => $seconds,
-                dateStarted      => convert_day_to_date($day),
-                issue            => {
-                    key => $jira_code,
-                },
-                author          => {
-                    name => $author,
-                },
-                worklogAttributes => [
-                    {
-                        key   => "_nonbillable_",
-                        value => JSON::true,
-                    },
-                    {
-                        key   => "_BUDGETCode_",
-                        value => "$billing_code",
-                    },
-                ],
-            };
+            ( $url, $args ) = prepare_tempo_args(
+                $jira,
+                {
+                    username     => $username,
+                    day          => $day,
+                    hours        => $hours,
+                    jira_code    => $jira_code,
+                    billing_code => $billing_code,
+                    note         => $note,
+                }
+            );
         }
         else {
             $url  = "/issue/$jira_code/worklog";
@@ -245,9 +244,10 @@ foreach my $line (<FILE>) {
             };
         }
 
+        # Handy to see exactly what'll get posted when Smart::Comments is on
         my $json = encode_json( $args );
-        ### $args
-        ### $json
+        ##### $args
+        ##### $json
         $jira->POST( $url, undef, $args );
 
     }
@@ -289,6 +289,78 @@ sub convert_day_to_date {
     my $start_string = $start_date->strftime('%FT%T.%3N%z');
 
     return $start_string;
+}
+
+# prepare_tempo_args( $jira,
+#                {
+#                    username     => $username,
+#                    day          => $day,
+#                    hours        => $hours,
+#                    jira_code    => $jira_code,
+#                    billing_code => $billing_code,
+#                    note         => $note,
+#                }
+#            )
+#
+# Returns a URL endpoint and hashref ready to post to Tempo
+sub prepare_tempo_args {
+    my ( $jira, $timelog ) = @_;
+    my ( $username, $day, $hours, $jira_code, $billing_code, $note )
+        = @$timelog{ qw{ username day hours jira_code billing_code note } };
+    #### require: $jira_code
+    #### require: $username
+    $billing_code =
+      $billing_code || fetch_billing_code( $jira, $jira_code );
+
+    my $url = q{/rest/tempo-timesheets/3/worklogs/};
+    my $author = $username; # Because I hope to add || $jira->username.
+    my $seconds = $hours * 3600;
+    my $args = {
+        comment          => $note,
+        timeSpentSeconds => $seconds,
+        billedSeconds    => $seconds,
+        dateStarted      => convert_day_to_date($day),
+        issue            => {
+            key => $jira_code,
+        },
+        author          => {
+            name => $author,
+        },
+        worklogAttributes => [
+            {
+                key   => "_nonbillable_",
+                value => JSON::true,
+            },
+            {
+                key   => "_BUDGETCode_",
+                value => "$billing_code",
+            },
+        ],
+    };
+
+    return ( $url, $args );
+}
+
+# fetch_billing_code( $jira_obj, $issue_code )
+#
+# Given a JIRA::REST object and an issue code, returns the value of the billing
+# code field for the issue.
+# See "use Memoize" at the top of this script - API call is only made once per
+# issue.
+sub fetch_billing_code {
+    my ( $jira, $issue_code ) = @_;
+
+    my $issue_fields = $jira->GET("/issue/$issue_code");
+
+    my $fields = $issue_fields->{'fields'}
+      or die "Couldn't get fields from issue $issue_code";
+
+    ##### $fields
+    my $billing_code = $fields->{'customfield_23600'}->{'key'};
+    #### check: $fields->{'customfield_23600'}
+    #### check: $billing_code
+
+    return $billing_code;
 }
 
 =head1 SEE ALSO
