@@ -38,7 +38,7 @@ Make a *tab-delimited* file like this, saved as "timesheet.txt":
     1     1.5     ABC-123            Broke stuff.
     1     2       ABC-234            Fixed stuff.
 
-Import the timesheet (replace JIRA_INSTANCE with your jira domain)
+Import the timesheet (replace `JIRA_INSTANCE` with your jira domain)
 
     jira_import -f timesheet.txt -m JIRA_INSTANCE
 
@@ -60,7 +60,7 @@ To set up for development:
 
     git clone https://github.com/ggruen/jira_import.git
     cd jira_import
-    cpanm --sudo --installdeps . # Drop --sudo if you install locally
+    cpanm --sudo --with-develop --installdeps . # Drop --sudo if you install locally
 
 If you don't have `cpanm` you can
 [install it](https://github.com/miyagawa/cpanminus#installation) or use
