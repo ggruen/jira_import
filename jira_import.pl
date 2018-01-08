@@ -125,7 +125,7 @@ use DateTime;
 
 # Debugging aids
 #use Smart::Comments qw{### }; # Progress level
-use Smart::Comments qw{### ####}; # Debugging level - adds checks and requires
+#use Smart::Comments qw{### ####}; # Debugging level - adds checks and requires
 #use Smart::Comments qw{### #### #####}; # Verbose debugging level
 use JSON;
 
