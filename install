@@ -35,3 +35,5 @@ cd "$BASEDIR" # Script exits if this fails due to "set -e" above
 
 git pull && cp ./jira_import.pl "$HOME/bin/jira_import" \
     && chmod 555 "$HOME/bin/jira_import"
+
+echo "Installed jira_import in $HOME/bin"
