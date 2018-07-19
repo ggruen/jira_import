@@ -7,8 +7,7 @@ jira_import - Import timesheet to JIRA
 =head1 SYNOPSIS
 
     jira_import -f my_timesheet.tsv -e my_timesheet_errors.tsv \
-        -m MY_INSTANCE.atlassian.net [-u username -p password] \
-        [--use_dates]
+        -m MY_INSTANCE.atlassian.net [-u username -p password]
 
     # Create timesheet file
     perl -e 'print "2\t1.25\tABC-1234\tDO-123-MP\tDid some work.\tJoe Producer\n"' > \
@@ -52,10 +51,16 @@ compatible with another system.  You can ignore them, or you can submit
 a pull request with a version that allows you to not provide these
 fields. :)
 
-Day is optional and defaults to today if not provided.  If it is provided,
-it must be an integer between 1 and 7, inclusive, where 1 is Sunday, 2 is
-Monday, ... and 7 is Saturday.  This odd numbering is for compatibility
+Day is optional and defaults to today if not provided.  If it is provided, it
+must be either an integer between 1 and 7, inclusive, where 1 is Sunday, 2 is
+Monday, ... and 7 is Saturday, or a date in any format that Date::Manip's
+ParseDate function can handle.  The odd 1-7 day numbering is for compatibility
 with the aforementioned "other system".
+
+ParseDate can handle many date formats (which are not well documented),
+including "today", "yesterday", "Dec 10, 1997", and "10/23/17".
+
+Stick with mm/dd/yy or mm/dd/yyyy or yyyy-mm-dd and you'll be fine.
 
 =item -m <machine_name>, --machine=<machine_name>, --instance=<machine_name>
 
@@ -111,12 +116,6 @@ scrollback, key logging software, etc).
 If you don't specify both a username and a password, C<jira_import> will
 ignore both options and use C<~/.netrc>.
 
-=item -d, --use_dates
-
-Interpret the Day column as a date instead of a day of the week. The date
-is parsed using the ParseDate function from C<Date::Manip>, so you can use
-almost any date format you like. Use mm/dd/yy instead of dd/mm/yy, though.
-
 =back
 
 =cut
@@ -139,7 +138,12 @@ use JSON;
 
 # Performance
 use Memoize;
-memoize('fetch_billing_code'); # Only fetch billing codes once per issue
+
+# Only fetch billing codes once per issue
+memoize 'fetch_billing_code';
+
+# Only convert a date or day into DateTime once
+memoize 'parse_date';
 
 my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 
@@ -294,7 +298,7 @@ sub convert_day_to_date {
     my $start_date;
     if ($day) {
         $start_date =
-          $use_dates
+          ( $day =~ /[^1-7\s]/imso )
           ? parse_date($day)
           : $LAST_SATURDAY->clone->add( days => $day );
     }
@@ -312,8 +316,8 @@ sub convert_day_to_date {
 sub parse_date {
     my ($date_string) = @_;
 
-    my $normalized_date_string = ParseDate($_);
-    die "Bad date string: $_\n" unless ( !$normalized_date_string );
+    my $normalized_date_string = ParseDate($date_string);
+    die "Bad date string: $_\n" if !$normalized_date_string;
 
     my ( $year, $month, $day ) =
       UnixDate( $normalized_date_string, "%Y", "%m", "%d" );
