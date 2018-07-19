@@ -7,7 +7,8 @@ jira_import - Import timesheet to JIRA
 =head1 SYNOPSIS
 
     jira_import -f my_timesheet.tsv -e my_timesheet_errors.tsv \
-        -m MY_INSTANCE.atlassian.net [-u username -p password]
+        -m MY_INSTANCE.atlassian.net [-u username -p password] \
+        [--use_dates]
 
     # Create timesheet file
     perl -e 'print "2\t1.25\tABC-1234\tDO-123-MP\tDid some work.\tJoe Producer\n"' > \
@@ -110,6 +111,12 @@ scrollback, key logging software, etc).
 If you don't specify both a username and a password, C<jira_import> will
 ignore both options and use C<~/.netrc>.
 
+=item -d, --use_dates
+
+Interpret the Day column as a date instead of a day of the week. The date
+is parsed using the ParseDate function from C<Date::Manip>, so you can use
+almost any date format you like. Use mm/dd/yy instead of dd/mm/yy, though.
+
 =back
 
 =cut
@@ -122,6 +129,7 @@ use Getopt::Long;
 use Pod::Usage;
 use JIRA::REST;
 use DateTime;
+use Date::Manip qw(ParseDate UnixDate);
 
 # Debugging aids
 #use Smart::Comments qw{### }; # Progress level
@@ -140,7 +148,10 @@ my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 # fields, that, due to their tendancy to change, isn't worth making into a
 # full-fledged customizable option.
 
-my ( $import_file, $error_file, $machine_name, $username, $password, $tempo );
+my (
+    $import_file, $error_file, $machine_name, $username,
+    $password,    $tempo,      $use_dates
+);
 GetOptions(
     'file|f=s'             => \$import_file,
     'error_file|e:s'       => \$error_file,
@@ -148,6 +159,7 @@ GetOptions(
     'username|u:s'         => \$username,
     'password|p:s'         => \$password,
     'tempo|t'              => \$tempo,
+    'use_dates|d'          => \$use_dates,
 ) or pod2usage($USAGE_ARGS);
 
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
@@ -169,10 +181,10 @@ my $LAST_SATURDAY =
 ######################################################################
 # Main Program
 
-open FILE, "<", $import_file
+open my $import_file_handle, "<", $import_file
   or die "Couldn't open $import_file for reading";
 
-open ERROR_FILE, ">", $error_file
+open my $error_file_handle, ">", $error_file
   or die "Couldn't open $error_file for writing";
 
 # Remove domain name in case people can't read directions.
@@ -192,7 +204,7 @@ else {
 }
 
 my $row = 0;
-foreach my $line (<FILE>) {  ### Importing--->      done
+foreach my $line (<$import_file_handle>) {  ### Importing--->      done
     $row++;
     try {
         # Don't change the original in case we need to write it out.
@@ -256,7 +268,7 @@ foreach my $line (<FILE>) {  ### Importing--->      done
 
         # Write out what we read in - this will have a newline at the end
         # so we don't add one.
-        print ERROR_FILE "$line";
+        print $error_file_handle "$line";
     };
 
 }
@@ -281,7 +293,10 @@ sub convert_day_to_date {
     # recalculating them every time this subroutine is called.
     my $start_date;
     if ($day) {
-        $start_date = $LAST_SATURDAY->clone->add( days => $day );
+        $start_date =
+          $use_dates
+          ? parse_date($day)
+          : $LAST_SATURDAY->clone->add( days => $day );
     }
     else {
         $start_date = $TODAY;
@@ -289,6 +304,29 @@ sub convert_day_to_date {
     my $start_string = $start_date->strftime('%FT%T.%3N%z');
 
     return $start_string;
+}
+
+# parse_date( $date_string )
+#
+# Given a date in a variable format, return a DateTime object for the date.
+sub parse_date {
+    my ($date_string) = @_;
+
+    my $normalized_date_string = ParseDate($_);
+    die "Bad date string: $_\n" unless ( !$normalized_date_string );
+
+    my ( $year, $month, $day ) =
+      UnixDate( $normalized_date_string, "%Y", "%m", "%d" );
+
+    # Compensate for the messed up way Tempo messes up Jira dates
+    my $date = DateTime->new(
+        year      => $year,
+        month     => $month,
+        day       => $day,
+        time_zone => 'local'
+    )->add( hours => 12 );
+
+    return $date;
 }
 
 # prepare_tempo_args( $jira,
