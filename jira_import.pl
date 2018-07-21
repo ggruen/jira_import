@@ -161,7 +161,7 @@ GetOptions(
 ) or pod2usage($USAGE_ARGS);
 
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
-die "username required with --tempo to set its 'author' field, sorry."
+die "--username=<username> required with --tempo to set its 'author' field."
   if ( $tempo && !$username );
 
 $error_file = "${import_file}_failed" unless $error_file;
