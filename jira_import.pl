@@ -53,14 +53,9 @@ fields. :)
 
 Day is optional and defaults to today if not provided.  If it is provided, it
 must be either an integer between 1 and 7, inclusive, where 1 is Sunday, 2 is
-Monday, ... and 7 is Saturday, or a date in any format that Date::Manip's
-ParseDate function can handle.  The odd 1-7 day numbering is for compatibility
-with the aforementioned "other system".
-
-ParseDate can handle many date formats (which are not well documented),
-including "today", "yesterday", "Dec 10, 1997", and "10/23/17".
-
-Stick with mm/dd/yy or mm/dd/yyyy or yyyy-mm-dd and you'll be fine.
+Monday, ... and 7 is Saturday, or a date in MM/DD/YYYY, MM/DD/YY, or YYYY-MM-DD
+format.  Leading zeros are optional.  The odd 1-7 day numbering is for
+compatibility with the aforementioned "other system".
 
 =item -m <machine_name>, --machine=<machine_name>, --instance=<machine_name>
 
@@ -127,7 +122,7 @@ use Try::Tiny;
 use Getopt::Long;
 use Pod::Usage;
 use JIRA::REST;
-use Date::Manip::Date; # qw(ParseDate UnixDate);
+use DateTime;
 
 # Debugging aids
 #use Smart::Comments qw{### }; # Progress level
@@ -142,7 +137,7 @@ use Memoize;
 memoize 'fetch_billing_code';
 
 # Only convert a date or day into DateTime once
-memoize 'convert_day_to_date';
+memoize 'parse_date';
 
 my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 
@@ -170,6 +165,16 @@ die "username required with --tempo to set its 'author' field, sorry."
   if ( $tempo && !$username );
 
 $error_file = "${import_file}_failed" unless $error_file;
+
+# Used by convert_day_to_date for date calculations.  Calculated here
+# so we only do it once.
+# Set "today" to noon local time. This is the safest start time, as JIRA will
+# adjust to UTC based on the user's time zone (note the assumption that this
+# script is running on a server in the user's local time zone as defined in
+# JIRA) and feed the server time to any plugins, e.g. Tempo.
+my $TODAY = DateTime->today( time_zone => 'local' )->add( hours => 12 );
+my $LAST_SATURDAY =
+  $TODAY->clone->subtract( days => $TODAY->local_day_of_week );
 
 ######################################################################
 # Main Program
@@ -269,48 +274,76 @@ foreach my $line (<$import_file_handle>) {  ### Importing--->      done
 ######################################################################
 # Subroutines
 
-# convert_day_to_date($day_int_or_date)
+# convert_day_to_date($day_int)
 #
 # Given an integer from 1-7 inclusive that represents a day of the week,
-# where Sunday is 1, Monday is 2, etc, returns the date formatted in the
+# where Sunday is 1, Monday is 2, etc, return the date formatted in the
 # format that JIRA wants for the "started" (and possibly other) field(s).
 #
-# If $day_int_or_date is not an integer, it's parsed as a date, which can
-# be in any format that Date::Manip::Date->parse can parse. If no time
-# is specified, it defaults to noon, local time. If $day_int_or_time includes
-# time and/or time zone information, that will be used instead.
-#
-# If $day is not a true value (e.g. 0 or undefined), today's date is returned.
+# If $day is not a true value (e.g. 0, undefined), today's date is returned.
 #
 sub convert_day_to_date {
-    my ($day_number) = @_;
+    my ($day) = @_;
 
     # Find the end of the previous week, so we can assign the correct date
     # based on the day-of-week input if Day is provided in the input file.
     # We store these in global variables at the top of the script so we're not
     # recalculating them every time this subroutine is called.
-    my $start_date = new Date::Manip::Date;
-    my @days       = qw/sun mon tue wed thu fri sat/;
-    if ($day_number) {
-        if ( $day_number =~ /[^1-7\s]/imso ) {
-            $start_date->parse($day_number);
-        }
-        else {
-            $start_date->parse( $days[ $day_number - 1 ] );
-        }
+    my $start_date;
+    if ($day) {
+        $start_date =
+          ( $day =~ /[^1-7\s]/imso )
+          ? parse_date($day)
+          : $LAST_SATURDAY->clone->add( days => $day );
     }
     else {
-        $start_date->parse("today");
+        $start_date = $TODAY;
     }
-
-    # Unless they provided an explicit time, set time to noon to compensate for
-    # the messed up way Tempo messes up Jira dates.
-    my ( $year, $month, $mday, $hour, $min, $sec ) = $start_date->value();
-    if ( !$hour && !$min && !$sec ) { $start_date->parse_time("noon") }
-
-    my $start_string = $start_date->printf('%O.000%z');
+    my $start_string = $start_date->strftime('%FT%T.%3N%z');
 
     return $start_string;
+}
+
+# parse_date( $date_string )
+#
+# Given a date in MM/DD/YYYY or YYYY-MM-DD format (optionally allowing a "." in
+# place of "/"), returns a DateTime object for the date.
+#
+# Note: I tried using Date::Manip::Date to do this instead, but it adds 10MB
+# to the fatpacked version of the script, and I don't see myself needing to
+# use more than these formats.
+sub parse_date {
+    my ($date_string) = @_;
+
+    my ( $month, $day, $year );
+    if ( $date_string =~ /(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})/ismo ) {
+
+        # MM/DD/YYYY (or MM/DD/YY)
+        ( $month, $day, $year ) = ( $1, $2, $3 );
+        if ( $year < 61 ) {
+            $year += 2000
+        }
+    }
+    elsif ( $date_string =~ /(\d{4})-(\d{1,2})-(\d{1,2})/ismo ) {
+
+        # YYYY-MM-DD
+        ( $year, $month, $day ) = ( $1, $2, $3 );
+    }
+    else {
+        die "Bad date string: $date_string";
+    }
+
+    # Compensate for the messed up way Tempo messes up Jira dates.
+    # This will also throw an error if they provided a date that matches our
+    # regexps but isn't a valid date.
+    my $date = DateTime->new(
+        year      => $year,
+        month     => $month,
+        day       => $day,
+        time_zone => 'local'
+    )->add( hours => 12 );
+
+    return $date;
 }
 
 # prepare_tempo_args( $jira,

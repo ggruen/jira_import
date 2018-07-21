@@ -3,7 +3,8 @@ requires 'Try::Tiny';
 
 requires 'Getopt::Long';
 requires 'Pod::Usage';
-requires 'JIRA::REST';
+requires 'JIRA::REST', '>= 0.018';
+requires 'DateTime';
 requires 'Date::Manip', '>= 6.72';
 
 # Debugging aids
