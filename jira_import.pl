@@ -146,8 +146,7 @@ my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 # fields, that, due to their tendancy to change, isn't worth making into a
 # full-fledged customizable option.
 
-my (
-    $import_file, $error_file, $machine_name, $username,
+my ($import_file, $error_file, $machine_name, $username,
     $password,    $tempo,      $use_dates
 );
 GetOptions(
@@ -162,7 +161,7 @@ GetOptions(
 
 die pod2usage($USAGE_ARGS) unless ( $import_file && $machine_name );
 die "--username=<username> required with --tempo to set its 'author' field."
-  if ( $tempo && !$username );
+    if ( $tempo && !$username );
 
 $error_file = "${import_file}_failed" unless $error_file;
 
@@ -173,17 +172,17 @@ $error_file = "${import_file}_failed" unless $error_file;
 # script is running on a server in the user's local time zone as defined in
 # JIRA) and feed the server time to any plugins, e.g. Tempo.
 my $TODAY = DateTime->today( time_zone => 'local' )->add( hours => 12 );
-my $LAST_SATURDAY =
-  $TODAY->clone->subtract( days => $TODAY->local_day_of_week );
+my $LAST_SATURDAY
+    = $TODAY->clone->subtract( days => $TODAY->local_day_of_week );
 
 ######################################################################
 # Main Program
 
 open my $import_file_handle, "<", $import_file
-  or die "Couldn't open $import_file for reading";
+    or die "Couldn't open $import_file for reading";
 
 open my $error_file_handle, ">", $error_file
-  or die "Couldn't open $error_file for writing";
+    or die "Couldn't open $error_file for writing";
 
 # Remove domain name in case people can't read directions.
 $machine_name =~ s/http(s)?:\/\///;
@@ -202,7 +201,7 @@ else {
 }
 
 my $row = 0;
-foreach my $line (<$import_file_handle>) {  ### Importing--->      done
+foreach my $line (<$import_file_handle>) {    ### Importing--->      done
     $row++;
     try {
         # Don't change the original in case we need to write it out.
@@ -214,8 +213,8 @@ foreach my $line (<$import_file_handle>) {  ### Importing--->      done
         return unless $mutated_line;
 
         # We have a very strict format
-        my ( $day, $hours, $jira_code, $billing_code, $note, $producer ) =
-          split( /\s*?\t\s*?/, $mutated_line );
+        my ( $day, $hours, $jira_code, $billing_code, $note, $producer )
+            = split( /\s*?\t\s*?/, $mutated_line );
 
         # Skip header row
         # "return" returns from the try block (i.e. it's "next").
@@ -235,8 +234,7 @@ foreach my $line (<$import_file_handle>) {  ### Importing--->      done
         if ($tempo) {
             ( $url, $args ) = prepare_tempo_args(
                 $jira,
-                {
-                    username     => $username,
+                {   username     => $username,
                     day          => $day,
                     hours        => $hours,
                     jira_code    => $jira_code,
@@ -255,7 +253,7 @@ foreach my $line (<$import_file_handle>) {  ### Importing--->      done
         }
 
         # Handy to see exactly what'll get posted when Smart::Comments is on
-        my $json = encode_json( $args );
+        my $json = encode_json($args);
         ##### $args
         ##### $json
         $jira->POST( $url, undef, $args );
@@ -291,10 +289,10 @@ sub convert_day_to_date {
     # recalculating them every time this subroutine is called.
     my $start_date;
     if ($day) {
-        $start_date =
-          ( $day =~ /[^1-7\s]/imso )
-          ? parse_date($day)
-          : $LAST_SATURDAY->clone->add( days => $day );
+        $start_date
+            = ( $day =~ /[^1-7\s]/imso )
+            ? parse_date($day)
+            : $LAST_SATURDAY->clone->add( days => $day );
     }
     else {
         $start_date = $TODAY;
@@ -321,7 +319,7 @@ sub parse_date {
         # MM/DD/YYYY (or MM/DD/YY)
         ( $month, $day, $year ) = ( $1, $2, $3 );
         if ( $year < 61 ) {
-            $year += 2000
+            $year += 2000;
         }
     }
     elsif ( $date_string =~ /(\d{4})-(\d{1,2})-(\d{1,2})/ismo ) {
@@ -361,33 +359,26 @@ sub parse_date {
 sub prepare_tempo_args {
     my ( $jira, $timelog ) = @_;
     my ( $username, $day, $hours, $jira_code, $billing_code, $note )
-        = @$timelog{ qw{ username day hours jira_code billing_code note } };
+        = @$timelog{qw{ username day hours jira_code billing_code note }};
     #### require: $jira_code
     #### require: $username
-    $billing_code =
-      $billing_code || fetch_billing_code( $jira, $jira_code );
+    $billing_code = $billing_code || fetch_billing_code( $jira, $jira_code );
 
     my $url = q{/rest/tempo-timesheets/3/worklogs/};
-    my $author = $username; # Because I hope to add || $jira->username.
+    my $author  = $username;       # Because I hope to add || $jira->username.
     my $seconds = $hours * 3600;
-    my $args = {
-        comment          => $note,
-        timeSpentSeconds => $seconds,
-        billedSeconds    => $seconds,
-        dateStarted      => convert_day_to_date($day),
-        issue            => {
-            key => $jira_code,
-        },
-        author          => {
-            name => $author,
-        },
+    my $args    = {
+        comment           => $note,
+        timeSpentSeconds  => $seconds,
+        billedSeconds     => $seconds,
+        dateStarted       => convert_day_to_date($day),
+        issue             => { key => $jira_code, },
+        author            => { name => $author, },
         worklogAttributes => [
-            {
-                key   => "_nonbillable_",
+            {   key   => "_nonbillable_",
                 value => JSON::true,
             },
-            {
-                key   => "_BUDGETCode_",
+            {   key   => "_BUDGETCode_",
                 value => "$billing_code",
             },
         ],
@@ -408,7 +399,7 @@ sub fetch_billing_code {
     my $issue_fields = $jira->GET("/issue/$issue_code");
 
     my $fields = $issue_fields->{'fields'}
-      or die "Couldn't get fields from issue $issue_code";
+        or die "Couldn't get fields from issue $issue_code";
 
     ##### $fields
     my $billing_code = $fields->{'customfield_23600'}->{'key'};
