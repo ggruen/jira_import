@@ -5,7 +5,7 @@ requires 'Getopt::Long';
 requires 'Pod::Usage';
 requires 'JIRA::REST', '>= 0.018';
 requires 'DateTime';
-requires 'Date::Manip', '>= 6.72';
+requires 'Text::CSV_PP';
 
 # Debugging aids
 requires 'Smart::Comments';

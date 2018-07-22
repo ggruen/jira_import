@@ -22,8 +22,8 @@ jira_import - Import timesheet to JIRA
     echo "MY_INSTANCE.atlassian.net login USERNAME password PASSWORD" > \
         ~/.netrc ; chmod 600 ~/.netrc
 
-Really, you'll copy from Excel, Google Sheets, etc, paste into a file,
-then jira_import -f filename -m MY_INSTANCE.atlassian.net
+Really, you'll copy from Excel, Google Sheets, etc, paste or export into a
+file, then jira_import -f filename -m MY_INSTANCE.atlassian.net
 
 =head1 DESCRIPTION
 
@@ -123,6 +123,7 @@ use Getopt::Long;
 use Pod::Usage;
 use JIRA::REST;
 use DateTime;
+use Text::CSV_PP; # So that fatpacker can pack it. Can't pack CSV_XS.
 
 # Debugging aids
 #use Smart::Comments qw{### }; # Progress level
@@ -178,11 +179,16 @@ my $LAST_SATURDAY
 ######################################################################
 # Main Program
 
-open my $import_file_handle, "<", $import_file
+open my $import_file_handle, "<:encoding(utf8)", $import_file
     or die "Couldn't open $import_file for reading";
 
-open my $error_file_handle, ">", $error_file
+open my $error_file_handle, ">:encoding(utf8)", $error_file
     or die "Couldn't open $error_file for writing";
+
+my $csv_parser;
+if ( $import_file =~ /\.csv$/ismo ) {
+    $csv_parser = Text::CSV_PP->new ({ binary => 1, auto_diag => 1 });
+}
 
 # Remove domain name in case people can't read directions.
 $machine_name =~ s/http(s)?:\/\///;
@@ -213,8 +219,12 @@ foreach my $line (<$import_file_handle>) {    ### Importing--->      done
         return unless $mutated_line;
 
         # We have a very strict format
+        # If it's a CSV file, parse using our CSV parser, otherwise use
+        # "split".
         my ( $day, $hours, $jira_code, $billing_code, $note, $producer )
-            = split( /\s*?\t\s*?/, $mutated_line );
+            = $csv_parser
+            ? parse_csv( $mutated_line, $csv_parser )
+            : split( /\s*?\t\s*?/, $mutated_line );
 
         # Skip header row
         # "return" returns from the try block (i.e. it's "next").
@@ -271,6 +281,28 @@ foreach my $line (<$import_file_handle>) {    ### Importing--->      done
 
 ######################################################################
 # Subroutines
+
+# parse_csv( $csv_line, $csv_parser )
+#
+# Given a string containing a line of CSV text and a Text::CSV parser
+# object, returns a list or arrayref (depending on calling context) containing
+# the contents of the row.
+#
+# If there's an error parsing the line, throws an error (dies) with the
+# error from the parser;
+#
+# If C<$parser> is undefined, returns undef.
+sub parse_csv {
+    my ( $line, $parser ) = @_;
+
+    return undef if !$parser;
+
+    $parser->parse($line) or die "Error parsing " . $parser->error_input();
+
+    my @columns = $parser->fields();
+
+    return wantarray ? @columns : \@columns;
+}
 
 # convert_day_to_date($day_int)
 #
