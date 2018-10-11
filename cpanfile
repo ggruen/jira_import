@@ -1,4 +1,3 @@
-requires 'Smart::Comments';
 requires 'Try::Tiny';
 
 requires 'Getopt::Long';

@@ -6,6 +6,8 @@ in JIRA.
 
 # Install/Upgrade
 
+## MacOS
+
 Download from the [download
 page](https://github.com/ggruen/jira_import/releases/latest).
 
@@ -20,6 +22,23 @@ You can download using your browser, or by copying the `jira_import` link under
 version 2.3.0:
 
     wget https://github.com/ggruen/jira_import/releases/download/v2.3.0/jira_import
+
+## Linux
+
+If you don't have cpanm, install "cpanminus" using your system's package
+manager, e.g.:
+
+    sudo apt-get -y install cpanminus
+
+Then:
+
+    git clone https://github.com/ggruen/jira_import.git
+    cd jira_import
+    cpanm --sudo --installdeps . # Drop --sudo if you install locally
+    ./install
+
+You can then `cd .. && rm -rd jira_import` if you like, or keep the
+directory so that you can upgrade later.
 
 # Set up .netrc
 
@@ -69,8 +88,8 @@ To set up for development:
     cd jira_import
     cpanm --sudo --with-develop --installdeps . # Drop --sudo if you install locally
 
-If you don't have `cpanm` you can
-[install it](https://github.com/miyagawa/cpanminus#installation) or use
+If you don't have `cpanm` you can [install
+it](https://github.com/miyagawa/cpanminus/tree/devel/App-cpanminus) or use
 `cpan install` instead and install the modules in "cpanfile" yourself.
 
 Make changes
@@ -98,7 +117,7 @@ Since you have the dependencies installed, you can install just the script:
 
 or
 
-    install
+    ./install
 
 # Release
 
