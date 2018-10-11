@@ -11,8 +11,15 @@ page](https://github.com/ggruen/jira_import/releases/latest).
 
     cd /where/you/downloaded
     mkdir -p ~/bin
-    mv ~/Downloads/jira_import.dms ~/bin/jira_import
+    test -e jira_import.dms && mv jira_import.dms ~/bin/jira_import || \
+        mv jira_import ~/bin/
     chmod 755 ~/bin/jira_import
+
+You can download using your browser, or by copying the `jira_import` link under
+"Assets" on the download page, and using wget to fetch it. e.g. to download
+version 2.3.0:
+
+    wget https://github.com/ggruen/jira_import/releases/download/v2.3.0/jira_import
 
 # Set up .netrc
 
