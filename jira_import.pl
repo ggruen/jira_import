@@ -408,7 +408,7 @@ sub prepare_tempo_args {
         author            => { name => $author, },
         worklogAttributes => [
             {   key   => "_nonbillable_",
-                value => JSON::true,
+                value => JSON::false,
             },
             {   key   => "_BUDGETCode_",
                 value => "$billing_code",
