@@ -143,12 +143,12 @@ memoize 'parse_date';
 my $USAGE_ARGS = { -verbose => 0, -exitval => 1 };
 
 # --tempo is (currently) an undocumented option that is only useful for me and
-# a few people I work with. It logs time in Tempo and fills in a couple custom
-# fields, that, due to their tendancy to change, isn't worth making into a
-# full-fledged customizable option.
+# a few people with whom I work. It logs time in Tempo and fills in a couple
+# custom fields. "fte" is one of those fields. Use --fte=1 to check it (default
+# for backwards compatibility), --fte=0 to not check it.
 
 my ($import_file, $error_file, $machine_name, $username,
-    $password,    $tempo,      $use_dates
+    $password,    $tempo,      $use_dates,    $check_fte
 );
 GetOptions(
     'file|f=s'             => \$import_file,
@@ -157,6 +157,7 @@ GetOptions(
     'username|u:s'         => \$username,
     'password|p:s'         => \$password,
     'tempo|t'              => \$tempo,
+    'fte:i'                => \$check_fte,
     'use_dates|d'          => \$use_dates,
 ) or pod2usage($USAGE_ARGS);
 
@@ -396,6 +397,12 @@ sub prepare_tempo_args {
     #### require: $username
     $billing_code = $billing_code || fetch_billing_code( $jira, $jira_code );
 
+    # Confusing name for the field, but it matches the "FTE" checkbox.  We set
+    # $nonbillable to check "FTE" if $check_fte is undefined (for backwards
+    # compatibility) or set to a non-zero value. If it's set to 0, don't check
+    # the box.
+    my $nonbillable = undef $check_fte || $check_fte ? JSON::true : JSON::false;
+
     my $url = q{/rest/tempo-timesheets/3/worklogs/};
     my $author  = $username;       # Because I hope to add || $jira->username.
     my $seconds = $hours * 3600;
@@ -408,7 +415,7 @@ sub prepare_tempo_args {
         author            => { name => $author, },
         worklogAttributes => [
             {   key   => "_nonbillable_",
-                value => JSON::false,
+                value => $nonbillable,
             },
             {   key   => "_BUDGETCode_",
                 value => "$billing_code",
